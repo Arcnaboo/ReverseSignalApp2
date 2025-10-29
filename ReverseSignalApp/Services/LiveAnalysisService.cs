@@ -9,9 +9,9 @@ namespace ReverseSignalApp.Services
     public class LiveAnalysisService
     {
         // Python'daki GROQ sabitleri
-        private const string GROQ_API_KEY = "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";
+        private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
+        
         // Python'daki LIVE_ANALYSIS_PROMPT
         private const string LIVE_ANALYSIS_PROMPT = """
         Sen, canlı maçları analiz eden ve gidişatı yorumlayan bir yapay-zekâ spor analistisisin.
@@ -47,9 +47,15 @@ namespace ReverseSignalApp.Services
 
         static LiveAnalysisService()
         {
+            var testGuid = new Guid("2b150884-be96-4854-85b8-d7e63101ca46");
+            var eservis = new Enigma3Service();
+            var apikey = eservis.Decrypt(testGuid, GROQ_API_KEY);
+
+
             _httpClient = new HttpClient();
+           
             _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GROQ_API_KEY);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apikey);
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
         public static LiveAnalysisService Instance { get; private set; } = new LiveAnalysisService();

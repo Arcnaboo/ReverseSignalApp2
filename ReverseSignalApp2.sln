@@ -6,9 +6,8 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseSignalApp", "ReverseSignalApp\ReverseSignalApp.csproj", "{CD351CC3-FFDB-4C68-9FCA-E39D64DD940B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
-	ProjectSection(SolutionItems) = preProject
-		Dockerfile.txt = Dockerfile.txt
-	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseSignalTest", "ReverseSignalTest\ReverseSignalTest.csproj", "{5B28C7E7-4182-485A-BAD2-0EA2AC4361FD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +19,10 @@ Global
 		{CD351CC3-FFDB-4C68-9FCA-E39D64DD940B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CD351CC3-FFDB-4C68-9FCA-E39D64DD940B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CD351CC3-FFDB-4C68-9FCA-E39D64DD940B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5B28C7E7-4182-485A-BAD2-0EA2AC4361FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B28C7E7-4182-485A-BAD2-0EA2AC4361FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B28C7E7-4182-485A-BAD2-0EA2AC4361FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5B28C7E7-4182-485A-BAD2-0EA2AC4361FD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -9,7 +9,7 @@ namespace ReverseSignalApp.Services
     public class FootballDataService
     {
         // Python'daki API_KEY ve BASE_URL sabitleri
-        private const string API_KEY = "1e39976953ae3c962bd228197863962d";
+        private const string API_KEY = "^<d77T-7udV<d.7-\\e,\\\\E^7TE-d7-\\,";
         private const string BASE_URL = "https://v3.football.api-sports.io";
 
         // Python'daki gibi, servis kendi HttpClient'ını yönetir.
@@ -21,10 +21,13 @@ namespace ReverseSignalApp.Services
         // Static constructor, HttpClient'ı bir kez ayarlar
         static FootballDataService()
         {
+            var testGuid = new Guid("2b150884-be96-4854-85b8-d7e63101ca46");
+            var eservis = new Enigma3Service();
+            var apikey = eservis.Decrypt(testGuid, API_KEY);
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri(BASE_URL);
             _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("x-apisports-key", API_KEY);
+            _httpClient.DefaultRequestHeaders.Add("x-apisports-key", apikey);
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
