@@ -5,8 +5,94 @@
 
 
 @inject IJSRuntime JS
+<style>
+    .__arc_login_overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .__arc_login_card {
+        width: 360px;
+        max-width: 95%;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.35);
+        padding: 18px;
+    }
+
+    .__arc_login_header {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+        color: #222;
+    }
+
+    .__arc_login_input {
+        width: 100%;
+        padding: 8px 10px;
+        margin-top: 6px;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+    }
+
+    .__arc_login_btn {
+        margin-top: 14px;
+        width: 100%;
+    }
+
+    .__arc_login_error {
+        margin-top: 8px;
+        color: #b00020;
+        font-weight: 600;
+    }
+</style>
+@if (!IsAuthenticated)
+{
+    <!-- LOGIN POPUP -->
+    <div class="__arc_login_overlay">
+        <div class="__arc_login_card">
+            <div class="__arc_login_header">ArcSoftwares — Yetkili Giriş</div>
+
+            <div>
+                <label>Kullanıcı Adı</label>
+                <input class="__arc_login_input" @bind="username" @bind:event="oninput" />
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>Şifre</label>
+                <input type="password" class="__arc_login_input" @bind="password" @bind:event="oninput" />
+            </div>
+
+            <button class="btn btn-success __arc_login_btn" @onclick="TryLoginAsync" disabled="@isLoggingIn">
+                @(isLoggingIn ? "Giriş yapılıyor..." : "Giriş Yap")
+            </button>
+
+            @if (!string.IsNullOrEmpty(loginError))
+            {
+                <div class="__arc_login_error">@loginError</div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    @* --- Burada senin mevcut LiveAnalysis UI’n var --- *@
+    @* Hiçbir şeyi değiştirme, sadece bu else içine al *@
+
+    @* örnek: *@
+    <div>
+        <h3>Canlı Analiz Paneli</h3>
+        @* mevcut butonlar, form, sonuç kartları vs burada kalacak *@
+    </div>
+}
 
 <h3 class="mb-3">⚽ Canlı Maç Analizi</h3>
+<!-- IMZA (sayfa üstüne) -->
 
 <div class="mb-3">
     <button class="btn btn-outline-primary" @onclick="LoadLiveMatchesAsync" disabled="@isLoading">
@@ -48,6 +134,9 @@ else
         <button class="btn btn-success" @onclick="StartAnalysisAsync">
             🚀 Analizi Başlat
         </button>
+        <h4 style=" font-size:0.9rem; opacity:0.9;">
+            @aboutText
+        </h4>
     </div>
 }
 
@@ -80,11 +169,53 @@ else
     private string? errorMessage;
     private string? loadingMessage;
     private string? analysisResult;
+    private string? aboutText;
+    private bool IsAuthenticated = false;
+    private string username = string.Empty;
+    private string password = string.Empty;
+    private string loginError = string.Empty;
+    private bool isLoggingIn = false;
 
+    
     protected override async Task OnInitializedAsync()
     {
         await LogAsync("🧠 Component initialized");
         await LoadLiveMatchesAsync();
+        aboutText = await AboutService.AboutApp();
+    }
+
+    private async Task TryLoginAsync()
+    {
+        loginError = string.Empty;
+        isLoggingIn = true;
+        StateHasChanged();
+
+        try
+        {
+            // 🔹 Artık AuthService üzerinden kontrol ediyoruz
+            bool isValid = await ReverseSignalApp.Services.AuthService.LoginAsync(username, password);
+
+            if (isValid)
+            {
+                IsAuthenticated = true;
+                username = string.Empty;
+                password = string.Empty;
+                await Task.Delay(100); // yumuşak geçiş
+            }
+            else
+            {
+                loginError = "Hatalı giriş! Kullanıcı adı veya şifre yanlış.";
+            }
+        }
+        catch (Exception ex)
+        {
+            loginError = "Sistem hatası: " + ex.Message;
+        }
+        finally
+        {
+            isLoggingIn = false;
+            StateHasChanged();
+        }
     }
 
     private async Task LoadLiveMatchesAsync()

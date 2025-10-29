@@ -7,7 +7,7 @@
         public static async Task<string> AboutApp()
         {
             await Task.Delay(250);
-            return "⚡ ArcSoftwares™ — Bu uygulama Arc Corp’un CTO’su Arda Akgür tarafından geliştirilmiştir. " +
+            return "⚡ ArcSoftwares™ — Bu uygulama Arc Corp ve Yüksi CTO’su Arda Akgür tarafından geliştirilmiştir. " +
                    "Teknolojinin sınırlarını yeniden tanımlayan bir vizyonun ürünüdür. © 2025 Arc Corp.";
         }
 
