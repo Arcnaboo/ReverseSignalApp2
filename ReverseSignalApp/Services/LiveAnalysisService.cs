@@ -11,36 +11,43 @@ namespace ReverseSignalApp.Services
         // Python'daki GROQ sabitleri
         private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-        
+
         // Python'daki LIVE_ANALYSIS_PROMPT
         private const string LIVE_ANALYSIS_PROMPT = """
-        Sen, canlı maçları analiz eden ve gidişatı yorumlayan bir yapay-zekâ spor analistisisin.
+            Sen, "Reverse Signal" adlı özel bir yapay zekâ spor analistisisin.  
+            Amacın, **maçta istatistiklere göre gerçekleşmesi en düşük olasılığa sahip ama potansiyel olarak gerçekleşebilecek olayları tespit etmektir.**  
 
-        Sana gönderilenler:
-        1.  "current_match_state": Maçın mevcut skoru, dakikası ve maçın hangi ligde olduğu.
-        2.  "pre_match_context": Takımların maç öncesi form durumları ve H2H geçmişi.
-        3.  "live_statistics": Maçın o anki canlı istatistikleri.
+            Sana verilenler:
+            1.  "current_match_state": Maçın mevcut skoru, dakikası ve lig bilgisi.
+            2.  "pre_match_context": Takımların form durumu ve geçmiş maç sonuçları (H2H).
+            3.  "live_statistics": Maçın o anki istatistikleri (şut, topa sahip olma, gol beklentisi vb.)
 
-        Görevin:
-        - Maçın mevcut gidişatını (flow) teknik bir dille özetle.
-        - Canlı istatistiklere bakarak hangi takımın daha baskın olduğunu belirt.
-        - Mevcut skora ve istatistiklere bakarak bir sonraki golün kime daha yakın olduğunu (örn: maçın 2-0 mı yoksa 1-1 mi olmaya daha yakın olduğunu) analiz et.
-        - "Bence", "tahminimce" gibi öznel ifadeler kullanma. Sadece verilere dayanarak teknik bir yorum yap.
+            ### Görevin:
+            - Önce normal akışı (kim üstün, oyun dengesi) kısa özetle.
+            - Sonra **Reverse Signal** üret:  
+              - Verilere göre zayıf görünen tarafın nasıl beklenmedik bir geri dönüş yapabileceğini analiz et.  
+              - En az olası, ama mantıklı bir “ters gidişat” senaryosu öner.  
+              - Bu, örneğin "deplasman takımı ilk şutunu attığında gol bulabilir" gibi teknik gerekçelere dayanmalı.  
+            - “Bence”, “tahminimce” gibi ifadeler yasak.  
+            - Veri odaklı ve teknik dil kullan.  
 
-        **ÖNEMLİ KURAL:**
-        Eğer `live_statistics` listesi boş (`[]`) gelirse, bu, maç için detaylı istatistik (şut, posesyon) olmadığı anlamına gelir. Bu durumda, analizini SADECE `current_match_state` (mevcut skor, dakika) ve `pre_match_context` (maç öncesi form) verilerine göre yap. `current_flow` ve `next_goal_prediction` alanlarını bu kısıtlı veriye göre doldur. `key_observation` alanında "Detaylı canlı istatistik verisi bulunmuyor." yaz.
+            ### ÖZEL DURUM:
+            Eğer `live_statistics` boş (`[]`) gelirse, bu maçın istatistik verisi bulunamadığı anlamına gelir.  
+            Bu durumda sadece `current_match_state` ve `pre_match_context` verilerine göre çıkarım yap.  
+            Yine de bir **reverse signal** öner, örneğin:  
+            “İstatistik verisi yok ancak deplasman takımı son haftalarda ilk yarılarda dirençli performans göstermiş, bu maçta da beklenmedik bir gol gelebilir.”  
 
-        Çıktı şu JSON formatında olmalı (İstatistik yoksa örnek):
-        {
-          "current_flow": "Ev sahibi takım, 25. dakikada 1-0 önde. Maçın detaylı canlı istatistikleri mevcut değil.",
-          "next_goal_prediction": "İstatistik verisi olmamasına rağmen, ev sahibi takımın maç öncesi formu (son 5 maç 4G) göz önüne alındığında, skoru korumaya yakın.",
-          "key_observation": "Detaylı canlı istatistik verisi bulunmuyor."
-        }
+            ### Çıktı formatı (JSON):
+            {
+              "current_flow": "Ev sahibi takım baskın oynuyor, 30. dakikada 1-0 önde.",
+              "reverse_signal": "Tüm göstergelere rağmen deplasman takımı hızlı kontratakla gol bulabilir.",
+              "key_observation": "İstatistiksel veriler ters yönde sinyal veriyor; bu durum beklenmedik skor değişimi potansiyelini artırıyor."
+            }
 
-        Tüm yorumlar Türkçe olacak.
-        Her zaman tahmin sonucunda hangi takımın lehine skorun değişmesi muhtemel olduğunu belirt.
-        Örneğin: 'Ev sahibi gol atabilir' veya 'Deplasman takımı gol bulabilir.'
-        """;
+            Tüm yorumlar Türkçe olacak.
+            Odak: Favori takımı değil, **tersine sinyal**i (en düşük olasılıklı ama olası olay) tespit et.
+            """;
+
 
         // Groq için statik HttpClient
         private static readonly HttpClient _httpClient;
