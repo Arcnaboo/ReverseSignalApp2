@@ -1,0 +1,151 @@
+﻿@page "/live-analysis"
+@using ReverseSignalApp.Services
+@using System.Text.Json
+
+<h3 class="mb-3">⚽ Canlı Maç Analizi</h3>
+
+<div class="mb-3">
+    <button class="btn btn-outline-primary" @onclick="LoadLiveMatchesAsync" disabled="@isLoading">
+        🔄 Canlı Maçları Yenile
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex align-items-center">
+        <div class="spinner-border text-info me-2" role="status">
+            <span class="visually-hidden">Yükleniyor...</span>
+        </div>
+        <strong>@loadingMessage</strong>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else if (liveMatches.Count == 0)
+{
+    <div class="alert alert-warning">Şu anda canlı maç bulunamadı.</div>
+}
+else
+{
+    <div class="mb-3">
+        <label class="form-label">Bir maç seçin:</label>
+        <select class="form-select" @bind="selectedMatchId" disabled="@isAnalyzing">
+            <option value="">-- Seçiniz --</option>
+            @foreach (var match in liveMatches)
+            {
+                <option value="@match.Id">
+                    @match.HomeTeam.Name @match.Score?.Home - @match.Score?.Away @match.AwayTeam.Name (@match.Status)
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <button class="btn btn-success" @onclick="StartAnalysisAsync" disabled="@(!CanAnalyze)">
+            🚀 Analizi Başlat
+        </button>
+    </div>
+}
+
+@if (isAnalyzing)
+{
+    <div class="d-flex align-items-center">
+        <div class="spinner-border text-success me-2" role="status">
+            <span class="visually-hidden">Analiz ediliyor...</span>
+        </div>
+        <strong>Analiz devam ediyor...</strong>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(analysisResult))
+{
+    <div class="card mt-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">🤖 LLaMA Analizi</h5>
+            <pre class="bg-light p-3 rounded small">@analysisResult</pre>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MatchModel> liveMatches = new();
+    private bool isLoading = false;
+    private bool isAnalyzing = false;
+    private string? selectedMatchId;
+    private string? errorMessage;
+    private string? loadingMessage;
+    private string? analysisResult;
+
+    private bool CanAnalyze => !isLoading && !isAnalyzing && !string.IsNullOrEmpty(selectedMatchId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLiveMatchesAsync();
+    }
+
+    private async Task LoadLiveMatchesAsync()
+    {
+        try
+        {
+            isLoading = true;
+            loadingMessage = "Canlı maçlar yükleniyor...";
+            errorMessage = null;
+            liveMatches.Clear();
+
+            var list = await FootballDataService.Instance.GetLiveTodayAsync();
+            liveMatches = list ?? new();
+
+            if (liveMatches.Count == 0)
+                errorMessage = "Şu anda analiz edilebilir canlı maç yok.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Maçlar yüklenirken hata: {ex.Message}";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+            loadingMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StartAnalysisAsync()
+    {
+        if (string.IsNullOrEmpty(selectedMatchId)) return;
+
+        try
+        {
+            isAnalyzing = true;
+            errorMessage = null;
+            analysisResult = null;
+
+            var match = liveMatches.FirstOrDefault(m => m.Id.ToString() == selectedMatchId);
+            if (match == null)
+            {
+                errorMessage = "Seçilen maç bulunamadı.";
+                return;
+            }
+
+            // Pre-match context + live stats paralel
+            var context = await FootballDataService.Instance.BuildFocalContextAsync(match, 10);
+            var stats = await FootballDataService.Instance.GetLiveStatisticsAsync(match.Id);
+
+            // Gerçek analiz çağrısı
+            analysisResult = await LiveAnalysisService.Instance.AnalyzeLiveMatchAsync(match, context, stats);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Analiz sırasında hata oluştu: {ex.Message}";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+}
