@@ -38,6 +38,8 @@ namespace ReverseSignalApp.Services
         }
 
         Tüm yorumlar Türkçe olacak.
+        Her zaman tahmin sonucunda hangi takımın lehine skorun değişmesi muhtemel olduğunu belirt.
+        Örneğin: 'Ev sahibi gol atabilir' veya 'Deplasman takımı gol bulabilir.'
         """;
 
         // Groq için statik HttpClient
