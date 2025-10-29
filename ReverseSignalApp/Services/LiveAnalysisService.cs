@@ -78,7 +78,7 @@ namespace ReverseSignalApp.Services
             // Python'daki 'payload'
             var payload = new
             {
-                model = "llama-3.1-70b-versatile",
+                model = "llama-3.3-70b-versatile",
                 messages = new[]
                 {
                     new { role = "system", content = LIVE_ANALYSIS_PROMPT },

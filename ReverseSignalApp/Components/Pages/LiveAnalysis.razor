@@ -1,6 +1,10 @@
 ﻿@page "/live-analysis"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using ReverseSignalApp.Services
-@using System.Text.Json
+@using System.Diagnostics
+
+
+@inject IJSRuntime JS
 
 <h3 class="mb-3">⚽ Canlı Maç Analizi</h3>
 
@@ -31,19 +35,17 @@ else
 {
     <div class="mb-3">
         <label class="form-label">Bir maç seçin:</label>
-        <select class="form-select" @bind="selectedMatchId" disabled="@isAnalyzing">
+        <select class="form-select" @onchange="OnMatchChanged" disabled="@isAnalyzing">
             <option value="">-- Seçiniz --</option>
             @foreach (var match in liveMatches)
             {
-                <option value="@match.Id">
-                    @match.HomeTeam.Name @match.Score?.Home - @match.Score?.Away @match.AwayTeam.Name (@match.Status)
-                </option>
+                <option value="@match.Id">@match.HomeTeam.Name @match.Score?.Home - @match.Score?.Away @match.AwayTeam.Name (@match.Status)</option>
             }
         </select>
     </div>
 
     <div class="mb-3">
-        <button class="btn btn-success" @onclick="StartAnalysisAsync" disabled="@(!CanAnalyze)">
+        <button class="btn btn-success" @onclick="StartAnalysisAsync">
             🚀 Analizi Başlat
         </button>
     </div>
@@ -64,7 +66,8 @@ else
     <div class="card mt-4 shadow-sm">
         <div class="card-body">
             <h5 class="card-title">🤖 LLaMA Analizi</h5>
-            <pre class="bg-light p-3 rounded small">@analysisResult</pre>
+            <pre style="white-space: pre-wrap; word-break: break-word;">@SplitLongLines(analysisResult, 100)</pre>
+
         </div>
     </div>
 }
@@ -78,15 +81,15 @@ else
     private string? loadingMessage;
     private string? analysisResult;
 
-    private bool CanAnalyze => !isLoading && !isAnalyzing && !string.IsNullOrEmpty(selectedMatchId);
-
     protected override async Task OnInitializedAsync()
     {
+        await LogAsync("🧠 Component initialized");
         await LoadLiveMatchesAsync();
     }
 
     private async Task LoadLiveMatchesAsync()
     {
+        await LogAsync("📡 Loading live matches...");
         try
         {
             isLoading = true;
@@ -97,25 +100,42 @@ else
             var list = await FootballDataService.Instance.GetLiveTodayAsync();
             liveMatches = list ?? new();
 
+            await LogAsync($"✅ Loaded {liveMatches.Count} matches");
+
             if (liveMatches.Count == 0)
                 errorMessage = "Şu anda analiz edilebilir canlı maç yok.";
         }
         catch (Exception ex)
         {
             errorMessage = $"Maçlar yüklenirken hata: {ex.Message}";
-            Console.WriteLine(ex);
+            await LogAsync($"❌ Error while loading matches: {ex}");
         }
         finally
         {
             isLoading = false;
             loadingMessage = null;
-            StateHasChanged();
         }
+    }
+
+    private void OnMatchChanged(ChangeEventArgs e)
+    {
+        selectedMatchId = e?.Value?.ToString()?.Trim();
+        Console.WriteLine($"[DEBUG] SelectedMatchId = {selectedMatchId}");
+        Debug.WriteLine($"[DEBUG] SelectedMatchId = {selectedMatchId}");
+        JS.InvokeVoidAsync("console.log", $"[JS DEBUG] SelectedMatchId = {selectedMatchId}");
+        StateHasChanged();
     }
 
     private async Task StartAnalysisAsync()
     {
-        if (string.IsNullOrEmpty(selectedMatchId)) return;
+        await LogAsync($"🚀 StartAnalysisAsync triggered with selectedMatchId={selectedMatchId}");
+
+        if (string.IsNullOrWhiteSpace(selectedMatchId))
+        {
+            errorMessage = "Lütfen önce bir maç seçin.";
+            await LogAsync("⚠️ StartAnalysisAsync aborted: match not selected");
+            return;
+        }
 
         try
         {
@@ -127,20 +147,22 @@ else
             if (match == null)
             {
                 errorMessage = "Seçilen maç bulunamadı.";
+                await LogAsync("⚠️ Match not found in list");
                 return;
             }
 
-            // Pre-match context + live stats paralel
+            await LogAsync($"🧩 Context build started for match: {match.HomeTeam.Name} vs {match.AwayTeam.Name}");
             var context = await FootballDataService.Instance.BuildFocalContextAsync(match, 10);
             var stats = await FootballDataService.Instance.GetLiveStatisticsAsync(match.Id);
-
-            // Gerçek analiz çağrısı
+            await LogAsync("🧠 Running LLaMA analysis...");
             analysisResult = await LiveAnalysisService.Instance.AnalyzeLiveMatchAsync(match, context, stats);
+
+            await LogAsync("✅ Analysis complete");
         }
         catch (Exception ex)
         {
             errorMessage = $"Analiz sırasında hata oluştu: {ex.Message}";
-            Console.WriteLine(ex);
+            await LogAsync($"❌ Exception: {ex}");
         }
         finally
         {
@@ -148,4 +170,32 @@ else
             StateHasChanged();
         }
     }
+
+    private async Task LogAsync(string message)
+    {
+        Console.WriteLine(message);
+        Debug.WriteLine(message);
+        await JS.InvokeVoidAsync("console.log", message);
+    }
+
+    private static string SplitLongLines(string text, int maxLineLength)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var lines = text.Split('\n');
+        var builder = new System.Text.StringBuilder();
+
+        foreach (var line in lines)
+        {
+            for (int i = 0; i < line.Length; i += maxLineLength)
+            {
+                int len = Math.Min(maxLineLength, line.Length - i);
+                builder.AppendLine(line.Substring(i, len));
+            }
+        }
+
+        return builder.ToString();
+    }
+
 }
