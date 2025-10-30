@@ -12,7 +12,7 @@ namespace ReverseSignalApp.Services
         private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-        private const string LIVE_ANALYSIS_SYSTEM_PROMPT = """
+        private const string LIVE_ANALYSIS_PROMPT = """
             Sen, "Counter-Edge" adlı yüksek çözünürlüklü bir canlı maç analiz modelisin.  
             Görevin: **favori gözüken takımın baskısının sürdürülemez olduğuna dair nicel kanıt üretmek; böylece ters köşe olasılığını objektif biçimde ölçmek.**
 
