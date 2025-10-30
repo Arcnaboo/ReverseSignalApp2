@@ -12,41 +12,41 @@ namespace ReverseSignalApp.Services
         private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-        // Python'daki LIVE_ANALYSIS_PROMPT
         private const string LIVE_ANALYSIS_PROMPT = """
-            Sen, "Reverse Signal" adlı özel bir yapay zekâ spor analistisisin.  
-            Amacın, **maçta istatistiklere göre gerçekleşmesi en düşük olasılığa sahip ama potansiyel olarak gerçekleşebilecek olayları tespit etmektir.**  
+            Sen, canlı futbol maçlarını izleyen ve **piyasadaki olasılık hatalarını tespit eden** bir yapay zekâ analistisisin.
 
-            Sana verilenler:
-            1.  "current_match_state": Maçın mevcut skoru, dakikası ve lig bilgisi.
-            2.  "pre_match_context": Takımların form durumu ve geçmiş maç sonuçları (H2H).
-            3.  "live_statistics": Maçın o anki istatistikleri (şut, topa sahip olma, gol beklentisi vb.)
+            Sana gönderilenler:
+            - “current_match_state”: maçın dakika, skor, lig bilgisi
+            - “pre_match_context”: takımların son 10 maçlık formları ve H2H geçmişi
+            - “live_statistics”: şut, xG, topa sahip olma, kartlar gibi canlı istatistikler
 
-            ### Görevin:
-            - Önce normal akışı (kim üstün, oyun dengesi) kısa özetle.
-            - Sonra **Reverse Signal** üret:  
-              - Verilere göre zayıf görünen tarafın nasıl beklenmedik bir geri dönüş yapabileceğini analiz et.  
-              - En az olası, ama mantıklı bir “ters gidişat” senaryosu öner.  
-              - Bu, örneğin "deplasman takımı ilk şutunu attığında gol bulabilir" gibi teknik gerekçelere dayanmalı.  
-            - “Bence”, “tahminimce” gibi ifadeler yasak.  
-            - Veri odaklı ve teknik dil kullan.  
+            Görevin:
+            - Maçın gidişatını **istatistiksel olarak** değerlendir. Kim üstün, momentum kimde?
+            - Piyasada **çok düşük olasılık verilen ama veriye göre gerçekleşme potansiyeli taşıyan** olayları belirle.
+            - Bu olayları “reverse_signals” listesinde topla.
 
-            ### ÖZEL DURUM:
-            Eğer `live_statistics` boş (`[]`) gelirse, bu maçın istatistik verisi bulunamadığı anlamına gelir.  
-            Bu durumda sadece `current_match_state` ve `pre_match_context` verilerine göre çıkarım yap.  
-            Yine de bir **reverse signal** öner, örneğin:  
-            “İstatistik verisi yok ancak deplasman takımı son haftalarda ilk yarılarda dirençli performans göstermiş, bu maçta da beklenmedik bir gol gelebilir.”  
+            Değerlendirmede:
+            - xG farkı, şut sayısı, son 15 dakikadaki tempo değişimi, pas yüzdesi, kart riski, yorgunluk, form grafiği gibi faktörleri analiz et.
+            - Örnek: “Ev sahibi 70’ten sonra gol atamaz deniyor (%10), ama xG’si 1.8 ve baskısı artıyor, gol bulabilir.”
 
-            ### Çıktı formatı (JSON):
+            Çıktı şu JSON formatında olmalı:
             {
-              "current_flow": "Ev sahibi takım baskın oynuyor, 30. dakikada 1-0 önde.",
-              "reverse_signal": "Tüm göstergelere rağmen deplasman takımı hızlı kontratakla gol bulabilir.",
-              "key_observation": "İstatistiksel veriler ters yönde sinyal veriyor; bu durum beklenmedik skor değişimi potansiyelini artırıyor."
+              "reverse_signals": [
+                {
+                  "scenario": "Deplasman Takımı Gol Bulur @ 8.00 (%12)",
+                  "true_prob": "%30,4",
+                  "evidence": "Ev sahibi topa %68 sahip ama son 10 dakikada şut yok, deplasman kontra fırsatları artıyor."
+                }
+              ],
+              "summary": "Ev sahibi baskın ama yoruluyor; deplasman gol potansiyeli artıyor."
             }
 
-            Tüm yorumlar Türkçe olacak.
-            Odak: Favori takımı değil, **tersine sinyal**i (en düşük olasılıklı ama olası olay) tespit et.
+            Notlar:
+            - Tüm yorumlar Türkçe olacak.
+            - "reverse_signals" listesi boşsa bile en az bir mantıklı ters olasılık üret.
+            - JSON dışında hiçbir şey yazma.
             """;
+
 
 
         // Groq için statik HttpClient
