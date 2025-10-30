@@ -1,6 +1,7 @@
 ﻿using ReverseSignalApp.Services; // Modelleri (Adım 1) kullanmak için
 using System.Text.Json;
-using System.Net.Http.Headers; // Header'ları eklemek için
+using System.Net.Http.Headers;
+using Microsoft.AspNetCore.Http.Features; // Header'ları eklemek için
 
 // Senin referans verdiğin doğru namespace
 namespace ReverseSignalApp.Services
@@ -31,7 +32,6 @@ namespace ReverseSignalApp.Services
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
-        // Python'daki __init__'e karşılık gelir.
         public FootballDataService()
         {
             // Python'daki gibi, 'init' mesajı.
@@ -39,7 +39,99 @@ namespace ReverseSignalApp.Services
         }
 
         // ----------------------------------------------------------
+        // ----------------------------------------------------------
+        // YENİ METOT: GetLeaguesAsync (Python'daki get_leagues)
+        // ----------------------------------------------------------
+        public async Task<List<LeagueModel>> GetLeaguesAsync()
+        {
+            Console.WriteLine("📡 Fetching available leagues...");
 
+            // Not: Bu servisin 'ApiLeaguesResponse' ve 'LeagueItemWrapper' gibi modelleri
+            // 'ReverseSignalApp.Services' namespace'i altından
+            // tanıdığını varsayıyorum.
+            var apiResponse = await GetAndDeserializeAsync<ApiLeaguesResponse>("/leagues");
+
+            if (apiResponse?.Response == null)
+            {
+                return new List<LeagueModel>();
+            }
+
+            // Python'daki özel 'active' sezon bulma mantığı için
+            // 'ParseLeagueWrapper' metodunu kullanıyoruz.
+            var leagues = apiResponse.Response.Select(ParseLeagueWrapper).ToList();
+
+            Console.WriteLine($"✅ Retrieved {leagues.Count} leagues.");
+            return leagues;
+        }
+
+        // ----------------------------------------------------------
+        // YENİ METOT: GetFixturesTodayAsync (Python'daki get_fixtures_today)
+        // ----------------------------------------------------------
+        public async Task<List<MatchModel>> GetFixturesTodayAsync()
+        {
+            var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            Console.WriteLine($"📅 Fetching fixtures for {today}");
+
+            var parameters = new Dictionary<string, string>
+    {
+        { "date", today },
+        { "timezone", "UTC" }
+    };
+
+            var apiResponse = await GetAndDeserializeAsync<ApiFootballResponse>("/fixtures", parameters);
+
+            if (apiResponse?.Response == null || !apiResponse.Response.Any())
+            {
+                Console.WriteLine("⚠️  Bugün için henüz fikstür bulunamadı.");
+                return new List<MatchModel>();
+            }
+
+            // Mevcut 'ParseFixtureWrapper' metodunu kullanarak
+            // maçları modellere dönüştürüyoruz.
+            var matchModels = apiResponse.Response.Select(ParseFixtureWrapper).ToList();
+
+            Console.WriteLine($"✅ {matchModels.Count} fixture found for {today}");
+            return matchModels;
+        }
+
+        // ----------------------------------------------------------
+        // YENİ YARDIMCI METOT: ParseLeagueWrapper
+        // ----------------------------------------------------------
+        // Python'daki 'get_leagues' içindeki 'active' sezon bulma mantığını uygular.
+        // Not: 'LeagueItemWrapper' ve 'LeagueModel' modellerinin
+        // namespace içinde tanımlı olduğunu varsayar.
+        private LeagueModel ParseLeagueWrapper(LeagueItemWrapper item)
+        {
+            int? activeSeason = null;
+
+            // Python'daki 'reversed(seasons)' mantığı
+            if (item.Seasons != null)
+            {
+            item.Seasons.Reverse();// bu void
+                
+                foreach (var s in item.Seasons)
+                {
+                    // Python: 'if s.get("current") or s.get("coverage", {}).get("fixtures", {}).get("events"):
+                    bool isCurrent = s.Current;
+                    bool hasEvents = s.Coverage?.Fixtures?.Events ?? false;
+
+                    if (isCurrent || hasEvents)
+                    {
+                        activeSeason = s.Year;
+                        break; // Aktif sezonu bulduk, döngüden çık
+                    }
+                }
+            }
+
+            return new LeagueModel
+            {
+                Id = item.League.Id,
+                Name = item.League.Name,
+                Country = item.Country?.Name, // Country null olabilir
+                Season = activeSeason,
+                Type = item.League.Type
+            };
+        }
         // ----------------------------------------------------------
         public async Task<List<MatchModel>> GetFixturesAsync(int? league_id = null, string? from_date = null, string? to_date = null, string? status = null, int? team_id = null, string? last = null, string? h2h = null, int? season = null)
         {

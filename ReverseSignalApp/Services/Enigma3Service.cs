@@ -32,7 +32,7 @@ namespace ReverseSignalApp.Services
 
                 KeyDictionary[i] = new List<Dictionary<char, char>> { plainToEnc, encToPlain };
             }
-            var x = 5;
+
         }
 
         public string Encrypt(Guid id, string plaintext)

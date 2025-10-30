@@ -1,0 +1,342 @@
+﻿@page "/pre-match-analysis"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using ReverseSignalApp.Services
+@using System.Diagnostics
+@using System.Linq
+
+@inject IJSRuntime JS
+
+
+@* Stil blokunu LiveAnalysis.razor'dan kopyalıyoruz *@
+<style>
+    .__arc_login_overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .__arc_login_card {
+        width: 360px;
+        max-width: 95%;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.35);
+        padding: 18px;
+    }
+
+    .__arc_login_header {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+        color: #222;
+    }
+
+    .__arc_login_input {
+        width: 100%;
+        padding: 8px 10px;
+        margin-top: 6px;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+    }
+
+    .__arc_login_btn {
+        margin-top: 14px;
+        width: 100%;
+    }
+
+    .__arc_login_error {
+        margin-top: 8px;
+        color: #b00020;
+        font-weight: 600;
+    }
+</style>
+
+@if (!IsAuthenticated)
+{
+    <div class="__arc_login_overlay">
+        <div class="__arc_login_card">
+            <div class="__arc_login_header">ArcSoftwares — Yetkili Giriş</div>
+
+            <div>
+                <label>Kullanıcı Adı</label>
+                <input class="__arc_login_input" @bind="username" @bind:event="oninput" />
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>Şifre</label>
+                <input type="password" class="__arc_login_input" @bind="password" @bind:event="oninput" />
+            </div>
+
+            <button class="btn btn-success __arc_login_btn" @onclick="TryLoginAsync" disabled="@isLoggingIn">
+                @(isLoggingIn ? "Giriş yapılıyor..." : "Giriş Yap")
+            </button>
+
+            @if (!string.IsNullOrEmpty(loginError))
+            {
+                <div class="__arc_login_error">@loginError</div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    @* --- Maç Öncesi Analiz UI’ı --- *@
+    <h3 class="mb-3">🔥 Maç Öncesi Oran Analizi</h3>
+    <div class="mb-3">
+        <button class="btn btn-outline-primary" @onclick="LoadFixturesAsync" disabled="@isLoading">
+            🔄 Bugüne Ait Fikstürleri Yenile
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex align-items-center">
+            <div class="spinner-border text-info me-2" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+            <strong>@loadingMessage</strong>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+    else if (preMatchFixtures.Count == 0)
+    {
+        <div class="alert alert-warning">Bugün için analiz edilebilir fikstür bulunamadı.</div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <label class="form-label">Bir maç seçin:</label>
+            <select class="form-select" @onchange="OnMatchChanged" disabled="@isAnalyzing">
+                <option value="">-- Seçiniz --</option>
+                @foreach (var match in preMatchFixtures)
+                {
+                    <option value="@match.Id">@match.UtcDate.ToLocalTime().ToString("HH:mm") | @match.HomeTeam.Name vs @match.AwayTeam.Name (@match.Competition)</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <button class="btn btn-success" @onclick="StartAnalysisAsync">
+                🚀 Oran Hatası Analizini Başlat
+            </button>
+            <h4 style=" font-size:0.9rem; opacity:0.9;">
+                @aboutText
+            </h4>
+        </div>
+    }
+
+    @if (isAnalyzing)
+    {
+        <div class="d-flex align-items-center">
+            <div class="spinner-border text-success me-2" role="status">
+                <span class="visually-hidden">Analiz ediliyor...</span>
+            </div>
+            <strong>Veriler toplanıyor ve LLaMA analizi yapılıyor...</strong>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(analysisResult))
+    {
+        <div class="card mt-4 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">🤖 LLaMA Oran Analizi</h5>
+                <pre style="white-space: pre-wrap; word-break: break-word;">@SplitLongLines(analysisResult, 100)</pre>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<MatchModel> preMatchFixtures = new();
+    private bool isLoading = false;
+    private bool isAnalyzing = false;
+    private string? selectedMatchId;
+    private string? errorMessage;
+    private string? loadingMessage;
+    private string? analysisResult;
+    private string? aboutText;
+    private bool IsAuthenticated = false;
+    private string username = string.Empty;
+    private string password = string.Empty;
+    private string loginError = string.Empty;
+    private bool isLoggingIn = false;
+
+    // AboutService'in var olduğunu varsayıyoruz.
+    // @inject IAboutService AboutService eklenebilir. Şimdilik metodu statik bırakıyorum.
+    private static class AboutService
+    {
+        public static Task<string> AboutApp() => Task.FromResult("Bu analiz, mevcut bahis oranlarındaki istatistiksel tutarsızlıkları (impossible odds) tespit etmeye odaklanır.");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LogAsync("🧠 Component initialized");
+        // Maç öncesi olduğu için, Live'daki gibi hemen yükleyebiliriz.
+        await LoadFixturesAsync();
+        aboutText = await AboutService.AboutApp();
+    }
+
+    // LiveAnalysis.razor'dan kopyalanan kimlik doğrulama metodu
+    private async Task TryLoginAsync()
+    {
+        loginError = string.Empty;
+        isLoggingIn = true;
+        StateHasChanged();
+
+        try
+        {
+            // AuthService'in var olduğunu varsayıyoruz
+            bool isValid = await ReverseSignalApp.Services.AuthService.LoginAsync(username, password);
+            if (isValid)
+            {
+                IsAuthenticated = true;
+                username = string.Empty;
+                password = string.Empty;
+                await Task.Delay(100);
+            }
+            else
+            {
+                loginError = "Hatalı giriş! Kullanıcı adı veya şifre yanlış.";
+            }
+        }
+        catch (Exception ex)
+        {
+            loginError = "Sistem hatası: " + ex.Message;
+        }
+        finally
+        {
+            isLoggingIn = false;
+            StateHasChanged();
+        }
+    }
+
+    // BUGÜNÜN FİKSTÜRLERİNİ YÜKLEME METODU (Değişiklik burada)
+    private async Task LoadFixturesAsync()
+    {
+        await LogAsync("📡 Loading today's fixtures...");
+        try
+        {
+            isLoading = true;
+            loadingMessage = "Bugünün fikstürleri yükleniyor...";
+            errorMessage = null;
+            preMatchFixtures.Clear();
+
+            // 1. Yeni eklediğimiz metodu kullan: GetFixturesTodayAsync
+            var list = await FootballDataService.Instance.GetFixturesTodayAsync(); //
+
+            // 2. Sadece başlamamış (Not Started: NS) maçları filtrele
+            preMatchFixtures = list
+                .Where(m => m.Status == "NS")
+                .ToList();
+
+            await LogAsync($"✅ Loaded {list?.Count} total fixtures, {preMatchFixtures.Count} pre-match matches selected.");
+
+            if (preMatchFixtures.Count == 0)
+                errorMessage = "Bugün için analiz edilebilir maç (başlamamış) yok.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Maçlar yüklenirken hata: {ex.Message}";
+            await LogAsync($"❌ Error while loading fixtures: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            loadingMessage = null;
+        }
+    }
+
+    private void OnMatchChanged(ChangeEventArgs e)
+    {
+        selectedMatchId = e?.Value?.ToString()?.Trim();
+        Console.WriteLine($"[DEBUG] SelectedMatchId = {selectedMatchId}");
+        Debug.WriteLine($"[DEBUG] SelectedMatchId = {selectedMatchId}");
+        JS.InvokeVoidAsync("console.log", $"[JS DEBUG] SelectedMatchId = {selectedMatchId}");
+        StateHasChanged();
+    }
+
+    // ANALİZİ BAŞLATMA METODU (Değişiklik burada)
+    private async Task StartAnalysisAsync()
+    {
+        await LogAsync($"🚀 StartAnalysisAsync triggered with selectedMatchId={selectedMatchId}");
+        if (string.IsNullOrWhiteSpace(selectedMatchId))
+        {
+            errorMessage = "Lütfen önce bir maç seçin.";
+            await LogAsync("⚠️ StartAnalysisAsync aborted: match not selected");
+            return;
+        }
+
+        try
+        {
+            isAnalyzing = true;
+            errorMessage = null;
+            analysisResult = null;
+
+            var match = preMatchFixtures.FirstOrDefault(m => m.Id.ToString() == selectedMatchId);
+            if (match == null)
+            {
+                errorMessage = "Seçilen maç bulunamadı.";
+                await LogAsync("⚠️ Match not found in list");
+                return;
+            }
+
+            await LogAsync($"🧩 Context build started for match: {match.HomeTeam.Name} vs {match.AwayTeam.Name}");
+
+            // 1. Focal Context'i BuildFocalContextAsync ile al (LiveAnalysis ile aynı)
+            var context = await FootballDataService.Instance.BuildFocalContextAsync(match, 10);
+
+            // 2. Canlı istatistik alma adımını atlıyoruz.
+
+            await LogAsync("🧠 Running LLaMA Impossible Odds analysis...");
+
+            // 3. LlamaFootballService'i kullanıyoruz
+            analysisResult = await LlamaFootballService.Instance.AnalyzeImpossibleOddsAsync(context);
+
+            await LogAsync("✅ Analysis complete");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Analiz sırasında hata oluştu: {ex.Message}";
+            await LogAsync($"❌ Exception: {ex}");
+        }
+        finally
+        {
+            isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LogAsync(string message)
+    {
+        Console.WriteLine(message);
+        Debug.WriteLine(message);
+        await JS.InvokeVoidAsync("console.log", message);
+    }
+
+    private static string SplitLongLines(string text, int maxLineLength)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var lines = text.Split('\n');
+        var builder = new System.Text.StringBuilder();
+
+        foreach (var line in lines)
+        {
+            for (int i = 0; i < line.Length; i += maxLineLength)
+            {
+                int len = Math.Min(maxLineLength, line.Length - i);
+                builder.AppendLine(line.Substring(i, len));
+            }
+        }
+
+        return builder.ToString();
+    }
+}

@@ -142,4 +142,88 @@ namespace ReverseSignalApp.Services
     public record EventTime([property: JsonPropertyName("elapsed")] int? Elapsed);
 
     #endregion
+
+    #region YENİ EKLENEN (Leagues) Modeller
+
+    /// <summary>
+    /// Python'daki 'get_leagues' metodunun döndürdüğü
+    /// sadeleştirilmiş lig modeli.
+    /// </summary>
+    public record LeagueModel
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public string? Country { get; set; }
+        public int? Season { get; set; } // Aktif sezon
+        public string? Type { get; set; }
+    }
+
+    /// <summary>
+    /// /leagues endpoint'inden gelen ana JSON yanıtını temsil eder.
+    /// </summary>
+    public class ApiLeaguesResponse
+    {
+        [JsonPropertyName("response")]
+        public List<LeagueItemWrapper> Response { get; set; } = new();
+    }
+
+    /// <summary>
+    /// API'den gelen 'response' listesindeki her bir lig öğesi.
+    /// </summary>
+    public record LeagueItemWrapper
+    {
+        [JsonPropertyName("league")]
+        public LeagueInfo League { get; set; } = null!;
+
+        [JsonPropertyName("country")]
+        public CountryInfo Country { get; set; } = null!;
+
+        [JsonPropertyName("seasons")]
+        public List<SeasonInfo> Seasons { get; set; } = new();
+    }
+
+    // LeagueItemWrapper için gereken alt kayıtlar (records)
+
+    public record LeagueInfo
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+    }
+
+    public record CountryInfo
+    {
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+    }
+
+    public record SeasonInfo
+    {
+        [JsonPropertyName("year")]
+        public int Year { get; set; }
+
+        [JsonPropertyName("current")]
+        public bool Current { get; set; }
+
+        [JsonPropertyName("coverage")]
+        public CoverageInfo? Coverage { get; set; }
+    }
+
+    // Python'daki 'coverage...fixtures...events' kontrolü için
+    public record CoverageInfo
+    {
+        [JsonPropertyName("fixtures")]
+        public FixturesCoverage? Fixtures { get; set; }
+    }
+
+    public record FixturesCoverage
+    {
+        [JsonPropertyName("events")]
+        public bool Events { get; set; }
+    }
+
+    #endregion
 }

@@ -1,14 +1,16 @@
 ﻿using ReverseSignalApp.Services; // Modelleri (Adım 1) kullanmak için
+using System.Net.Http.Headers; // Header'ları eklemek için
 using System.Text;
 using System.Text.Json;
-using System.Net.Http.Headers; // Header'ları eklemek için
+using System.Text.Json.Serialization;
 
 namespace ReverseSignalApp.Services
 {
     // Python'daki LlamaFootballService sınıfına karşılık gelir.
     public class LlamaFootballService
     {
-        // Python'daki GROQ sabitleri
+        // ... (GROQ_API_KEY, GROQ_API_URL, IMPOSSIBLE_ODDS_PROMPT ve HttpClient/Instance tanımları aynı kalır)
+
         private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -53,44 +55,65 @@ namespace ReverseSignalApp.Services
             var eservis = new Enigma3Service();
             var apikey = eservis.Decrypt(testGuid, GROQ_API_KEY);
             _httpClient = new HttpClient();
-            // BaseAddress'i burada ayarlamıyoruz, çünkü PostAsync'te tam URL veriyoruz.
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apikey);
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
-        // Python'daki __init__
         public LlamaFootballService()
         {
             Console.WriteLine("✅ LlamaFootballService initialized (Groq LLaMA model)");
-
         }
 
         // Python'daki analyze_impossible_odds
-        // Kural 1: Tamamen async
         public async Task<string> AnalyzeImpossibleOddsAsync(Dictionary<string, object> context)
         {
+            // Python'daki json.dumps() işlevini doğru şekilde taklit etmek için seçenekler.
+            // 1. PropertyNamingPolicy = CamelCase: C# PascalCase (HomeTeam) -> JSON camelCase (homeTeam) yapar.
+            //    Bu, 400 Bad Request hatasını çözmelidir.
+            // 2. Converters: DateTime'ların doğru formatta gönderilmesini sağlar (Python'daki default=str'ın bir karşılığı).
+            var contextSerializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false,
+                // DateTime'ların ISO formatında doğru serileşmesini sağlar.
+                Converters = { new JsonStringEnumConverter() }
+            };
+
+            // Context objesini önce doğru seçeneklerle serileştiriyoruz.
+            var contextJsonString = JsonSerializer.Serialize(context, contextSerializerOptions);
+
+            // Ana payload için de aynı seçenekleri kullanıyoruz.
+            var payloadSerializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            };
+
+
             // Python'daki 'messages' ve 'payload'
             var payload = new
             {
-                model = "llama-3.1-70b-versatile", // Python'da 3.3 kullanıyordun, 3.1 daha hızlı olabilir
+                // Python'da 3.3 kullanıyordunuz, C# kodunu 3.3 olarak güncelliyorum.
+                model = "llama-3.3-70b-versatile",
                 messages = new[]
                 {
                     new { role = "system", content = IMPOSSIBLE_ODDS_PROMPT },
-                    new { role = "user", content = JsonSerializer.Serialize(context, new JsonSerializerOptions { WriteIndented = false }) }
+                    // Context'i string olarak ekliyoruz (Python'daki gibi).
+                    new { role = "user", content = contextJsonString }
                 },
                 temperature = 0.2
             };
 
-            // Python'daki requests.post(url, headers=HEADERS, json=payload)
             try
             {
-                var jsonPayload = JsonSerializer.Serialize(payload);
-                var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                // Payload'u son kez JSON string'ine çeviriyoruz.
+                var finalJsonPayload = JsonSerializer.Serialize(payload, payloadSerializerOptions);
+                var httpContent = new StringContent(finalJsonPayload, Encoding.UTF8, "application/json");
 
                 var response = await _httpClient.PostAsync(GROQ_API_URL, httpContent);
 
-                response.EnsureSuccessStatusCode(); // Hata varsa exception fırlat
+                response.EnsureSuccessStatusCode();
 
                 var jsonResponse = await response.Content.ReadAsStringAsync();
 
