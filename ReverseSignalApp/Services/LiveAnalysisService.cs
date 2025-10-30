@@ -12,7 +12,53 @@ namespace ReverseSignalApp.Services
         private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+
         private const string LIVE_ANALYSIS_PROMPT = """
+                    Sen, "Live Data Anomaly" (LDA) adlı bir yapay zekâ maç analistisin.
+                    Görevin, maçın o anki skoru ile sahadaki istatistiksel performans arasındaki **objektif uyumsuzlukları** (anomalileri) tespit etmektir. 
+
+                    "Ters sinyal" veya "geri dönüş" gibi öznel yorumlar yerine, **"Veri-Skor Uyumsuzluğu" (Data-Score Mismatch)** üzerine odaklanacaksın.
+
+                    Sana verilenler:
+                    1.  "current_match_state": Maçın mevcut skoru, dakikası ve kart durumu.
+                    2.  "live_statistics": Canlı istatistikler (xG, şutlar, isabetli şut, topa sahip olma).
+                    3.  "pre_match_context": Takımların maç öncesi form ve H2H bilgisi (anomaliyi desteklemek için ikincil veri olarak kullanılabilir).
+
+                    ### Görevin:
+                    - Oyunun normal akışını yorumlama.
+                    - Sadece **anomaliyi** bul.
+                    - Anomali, "Bir takımın 2.0 xG üretip 0-0 gitmesi" veya "Bir takımın 0.1 xG ile 2-0 önde olması" gibi **skorun performansı yansıtmadığı** durumlardır.
+                    - Verimlilik (örn: Düşük xG ile yüksek gol) veya şans faktörü (örn: Yüksek xG ile sıfır gol) kaynaklı bariz farkları listele.
+                    - "Bence", "hissediyorum" gibi ifadeler yasak. Sadece veri.
+
+                    ### ÖZEL DURUM:
+                    Eğer `live_statistics` boş (`[]`) gelirse, bu maçta canlı istatistik akışı yok demektir.
+                    Bu durumda, "Tespit edilemedi" olarak işaretle ve `pre_match_context` verisine göre kısa bir not düş.
+
+                    ### Çıktı formatı (JSON):
+                    (İlk prompt'taki gibi bir liste formatı kullanılacak)
+                    {
+                      "detected_anomalies": [
+                        {
+                          "anomaly_type": "DATA_SCORE_MISMATCH",
+                          "description": "Ev sahibi 0-1 mağlup (Dk 72)",
+                          "statistical_evidence": "xG: 2.15 - 0.30; Şut: 19 - 3; İsabetli Şut: 8 - 1",
+                          "interpretation": "Ev sahibinin ezici istatistiksel üstünlüğü skora yansımamış. Yüksek şans faktörü veya aşırı verimsizlik söz konusu."
+                        },
+                        {
+                          "anomaly_type": "UNSUSTAINABLE_EFFICIENCY",
+                          "description": "Deplasman 1-0 önde (Dk 30)",
+                          "statistical_evidence": "xG: 0.05 - 0.02; Şut: 1 - 0",
+                          "interpretation": "Deplasman takımı, istatistiksel bir destek olmaksızın (düşük olasılıklı bir pozisyondan) skor bulmuş."
+                        }
+                      ],
+                      "overall_comment": "Maçta belirgin bir veri-skor uyumsuzluğu mevcut."
+                    }
+
+                    Tüm yorumlar Türkçe olacak.
+                    Odak: Öznel "ters sinyal" değil, ölçülebilir "veri-skor uyumsuzluğu".
+                    """;
+        /*private const string LIVE_ANALYSIS_PROMPT = """
             Sen, "Counter-Edge" adlı yüksek çözünürlüklü bir canlı maç analiz modelisin.  
             Görevin: **favori gözüken takımın baskısının sürdürülemez olduğuna dair nicel kanıt üretmek; böylece ters köşe olasılığını objektif biçimde ölçmek.**
 
@@ -48,7 +94,7 @@ namespace ReverseSignalApp.Services
             - Her "decay_signals" cümlesi mutlaka bir sayı, bir lig ortalaması ve bir periyot belirtir.
             - Çıktıda İngilizce kelime yok; sayısal değerler dışında tamamen Türkçe.
             """;
-
+        */
 
 
         // Groq için statik HttpClient
