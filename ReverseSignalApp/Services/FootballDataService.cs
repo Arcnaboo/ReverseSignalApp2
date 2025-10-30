@@ -39,7 +39,7 @@ namespace ReverseSignalApp.Services
         }
 
         // ----------------------------------------------------------
-        // get_fixtures metodu (Python'daki get_fixtures'ın async C# karşılığı)
+
         // ----------------------------------------------------------
         public async Task<List<MatchModel>> GetFixturesAsync(int? league_id = null, string? from_date = null, string? to_date = null, string? status = null, int? team_id = null, string? last = null, string? h2h = null, int? season = null)
         {
