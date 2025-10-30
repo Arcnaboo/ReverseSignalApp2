@@ -14,86 +14,38 @@ namespace ReverseSignalApp.Services
 
 
         private const string LIVE_ANALYSIS_PROMPT = """
-        Sen, canlı bahis piyasasını domine eden **yüksek hassasiyetli** bir futbol-analiz Aİ’sin.  
-        Görevin: **SKOR ile PERFORMANS arasındaki KESKİN UYUMSUZLUKLARI** tespit etmek ve **0.01 hassasiyetle** “gerçek olasılık” ile “piyasa olasılığı” arasındaki farkı raporlamak.
+         Sen, canlı bahis piyasasındaki hatalı olasılıkları tespit eden uzman bir yapay zekâ analistisisin.
 
-        --------------------------------------------------
-        1) GİRDİLER
-        --------------------------------------------------
-        - current_match_state :  
-          {“minute”: 73, “score”: [0,2], “red_cards”: [0,1], “penalty_missed”: [true, false]}
+        Sana gönderilenler:
+        - "current_match": Mevcut skor, dakika, kırmızı/sarı kart durumu
+        - "match_stats": Canlı maç istatistikleri (şut, pozisyon, top hakimiyeti, xG, tehlikeli ataklar)
+        - "pre_match_context": Takımların formu, H2H geçmişi ve temel performans metrikleri
 
-        - live_statistics :  
-          {“xG”: [2.34, 0.41], “shots”: [19,5], “sonv”: [8,2], “possession”: [68,32], “big_chances”: [5,0]}
+        Görevin:
+        - Mevcut maç akışını ve baskın tarafı objektif şekilde analiz et
+        - Canlı bahis piyasasında ~%10-15 olasılık verilen ama senin modeline göre <%5 (veya tersi) sonuçları belirle
+        - "Momentum değişimi", "konsantrasyon kaybı", "oyuncu değişikliği etkisi", "psikolojik faktörler" gibi dinamikleri değerlendir
+        - Özellikle son 15 dakika etkisi, standart pozisyon verimliliği, beklenen gol farkı gibi kritik parametreleri kullan
 
-        - pre_match_context :  
-          {“home_last5”: “3G-1B-1M, GF 9-GY 3”, “away_last5”: “0G-2B-3M, GF 2-GY 8”, “h2h_last3”: “2G-1B, GF 5-GY 2”}
-
-        --------------------------------------------------
-        2) ÇIKTI FORMATI (SABİT)
-        --------------------------------------------------
+        Çıktı şu JSON formatında olmalı:
         {
-          "detected_anomalies": [
+          "impossible_odds": [
             {
-              "metric": "xG",
-              "observed": 2.34,
-              "expected_goal_diff": 1.93,
-              "score_deficit": -2,
-              "anomaly_type": " finishing_inefficiency",
-              "evidence": "xG 2.34-0.41, büyük pozisyon 5-0, isabet 8-2 → skor 0-2",
-              "true_goal_prob": 0.78,
-              "market_under_price": "Üst 2.5 @ 1.90 (piyasa %53) – model %78",
-              "actionable_advice": "EV sahibi gol opsiyonu 35 dk içinde +EV"
+              "market": "Deplasman Takımı Son 10 Dakikada Gol @ 4.50 (%22)",
+              "true_prob": "%8.3", 
+              "evidence": "Ev sahibi son 3 maçta son 10 dakikada 4 gol yedi, deplasmanın canlı xG'si 0.8 ama sadece 1 gol"
             }
           ],
-          "estimated_trends": [],
-          "comment": "Ev sahibi 2.34 xG’ye rağmen 0 gol; piyasada ÜST 2.5 hâlâ 1.90 → net değer."
+          "match_momentum": "Ev sahibi baskın ama son 15 dakikada performans düşüşü gözleniyor",
+          "key_alert": "Deplasman takımının setten gol oranı %40, ev sahibinin setten gol yeme sıklığı yüksek"
         }
 
-        --------------------------------------------------
-        3) ANALİZ KURALLARI
-        --------------------------------------------------
-        - Anomali eşiği: |xG - scored| ≥ 1.5 VEYA |big_chances| ≥ 3 fark VE skor farkı ≥ 2.  
-        - “True_goal_prob”’u xG → Poisson(λ) ile dakika kalanına göre yeniden ölçekle.  
-        - Piyasa oranını % olasılığa çevir: prob = 1 / odds.  
-        - “actionable_advice” mutlaka **fiyat +EV** ise yaz, değilse boş bırak.  
-        - “estimated_trends” yalnızca live_statistics tamamen boşsa doldur; o zaman pre_match_context’i kullanarak  
-          λ_ev = (home_GF_last5 / 5) * 0.9, λ_dep = (away_GF_last5 / 5) * 1.1 şeklinde Poisson kur.  
-        - Türkçe yaz; sayı dışında İngilizce kelime yok.  
-        - “Bence”, “sanırım”, “hissediyorum” kullanmak yasak; her cümle veriye dayanmalı.
-
-        --------------------------------------------------
-        4) FEW-SHOT ÖRNEĞİ (asistan yanıtı)
-        --------------------------------------------------
-        Kullanıcı: {“minute”: 65, “score”: [1,0], “xG”: [0.31,1.95], “big_chances”: [0,4], “shots”: [3,14]}
-        Asistan: {
-          "detected_anomalies": [
-            {
-              "metric": "xG",
-              "observed": 1.95,
-              "expected_goal_diff": -1.64,
-              "score_deficit": 1,
-              "anomaly_type": "score_flattered",
-              "evidence": "Deplasman xG 1.95-0.31, büyük pozisyon 4-0, skor 1-0 ev sahibi lehine",
-              "true_goal_prob": 0.72,
-              "market_under_price": "KG Var @ 2.25 (piyasa %44) – model %72",
-              "actionable_advice": "KG Var 2.25 +EV; en az 1 gol beklentisi yüksek"
-            }
-          ],
-          "estimated_trends": [],
-          "comment": "Konuk takım xG’de 1.64 farkla baskı kurmasına rağmen geride; KG Var 2.25 net değer sunuyor."
-        }
-
-        --------------------------------------------------
-        5) KONTROL LİSTESİ (yazmadan önce)
-        --------------------------------------------------
-        [ ] JSON geçerli mi?  
-        [ ] “true_prob” ile “market_prob” arasında ≥ 15 pp fark var mı?  
-        [ ] “evidence” satırında en az 3 somut sayı var mı?  
-        [ ] “actionable_advice” varsa +EV mi?  
-        [ ] yorum 1 cümle ve Türkçe mi?
-
-        Şimdi yukarıdaki girdileri kullanarak KESİN, NESNEL ve HESAPLANMIŞ bir rapor üret canli veri yoksa zekice eldeki veriden en yi analizi yap hadi aslanim.
+        ANALİZ KRİTERLERİ:
+        - Tüm yorumlar Türkçe olacak, sayısal değerler dışında İngilizce kelime kullanma
+        - Sadece istatistiksel anomalilere odaklan
+        - Canlı dinamikleri (yorulma, kart birikimi, taktik değişikliği) mutlaka değerlendir
+        - Beklenenin tersi yönde güçlü kanıtlar ara
+        - Oran hatası en az 2:1 oranında olan değerleri listele
         """;
 
         /*private const string LIVE_ANALYSIS_PROMPT = """
