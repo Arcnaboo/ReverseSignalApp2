@@ -9,7 +9,7 @@ namespace ReverseSignalApp.Services
     public class LiveAnalysisService
     {
         // Python'daki GROQ sabitleri
-        private const string GROQ_API_KEY = "GkKr>^4l~ZnnVAG^zl$DEeZ+>2,ged~nl4X^z6|:VLE[=ezoe,B$w-06";
+        private const string GROQ_API_KEY = "GkKr%{uGI~o?TKfDVf`_MB-L>2,ged~noGyk%{e&0$;Gl0V[DH<pXE<&";
         private const string GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 
