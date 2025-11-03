@@ -16,33 +16,56 @@ namespace ReverseSignalApp.Services
 
         // Python'daki IMPOSSIBLE_ODDS_PROMPT
         private const string IMPOSSIBLE_ODDS_PROMPT = """
-        Sen, bahis piyasasındaki hataları tespit eden bir yapay-zekâ analistisisin.
+Sen, bahis piyasasındaki olasılık hatalarını tespit eden uzman bir yapay zekâ analistisisin.  
+Görevin: geçmiş form, istatistiksel eğilimler ve piyasa oranlarını kıyaslayarak “oran manipülasyonu” veya “istatistiksel tutarsızlık” içeren sonuçları belirlemektir.  
+Cevabını yalnızca belirtilen JSON formatında ver.
 
-        Sana gönderilenler:
-        - Gelecekteki TEK bir maç (“odak” maçı)
-        - Ev sahibi takımın son 10 TAMAMLANMIŞ maçı
-        - Deplasman takımın son 10 TAMAMLANMIŞ maçı
-        - Tarafların son 6 karşılaşmasından oluşan birbirine karşı H2H geçmişi
+GİRDİLER:
+- "focus_match": Tahmin yapılacak tek maç (ör: "Team A vs Team B")
+- "home_last10": Ev sahibi takımın son 10 tamamlanmış maçı (skor, xG, iç/deplasman bilgisi dahil)
+- "away_last10": Deplasman takımının son 10 tamamlanmış maçı
+- "h2h_last6": İki takım arasındaki son 6 karşılaşmanın geçmişi
+- "market": { "market_name": string, "market_odds": string, "market_implied_prob": float } // örn. "Üst 2.5 @ 1.90 (%52)"
 
-        Görevin:
-        - Piyasada ~%10 olasılık verilen ama senin modeline göre <%1 (veya tersi) sonuçları belirle.
-        - xG (gol beklentisi) trendleri, gol ortalamaları, temiz sayı serileri, BTTS (karşılıklı gol) fiyatları, takımların hafta içi / deplasman performansı gibi ipuçlarını kullan.
-        - Oran hatalarını “impossible_odds” listesine koy.
+GÖREV:
+- Geçmiş 10 maçtaki gol ortalamaları, xG trendleri, BTTS (karşılıklı gol), ve H2H istatistiklerini analiz et.  
+- Piyasada ~%10–20 olasılık verilen ama modeline göre <%5 (veya tersi) görünen sonuçları tespit et.  
+- “Son 5 maç düşük skorlu” (ör. 1-0, 0-0, 1-1) olup da piyasanın “üst” fiyatladığı veya tam tersi “üst trendli” olup “alt” fiyatladığı durumları özellikle kontrol et.  
+- Anomali eşiği: market_implied_prob / true_prob ≥ 2.0 veya ≤ 0.5 → oran hatası olarak raporla.  
+- Form, yorgunluk, hafta içi yoğunluğu, kırmızı kart geçmişi, deplasman-ev farkı gibi bağlamsal etkenleri kanıt cümlesine dahil et.
 
-        Çıktı şu JSON formatında olmalı:
-        {
-          "impossible_odds": [
-            {
-              "market": "Fulham Kazanır @ 2,50 (%40)",
-              "true_prob": "%25,1",
-              "evidence": "Fulham evde ort. 1,2 gol, Wolves deplasman ort. 1,1 gol, son 5 iç sahadan 3-1-1"
-            }
-          ],
-          "comments": "Tek cümlelik yorum (Türkçe)."
-        }
+DEĞERLENDİRME KRİTERLERİ:
+1. Son 5–10 maçta toplam gol ortalaması (avg_goals_home / avg_goals_away) ile piyasanın “Üst/Alt” fiyatlaması uyuşmuyorsa uyarı üret.  
+2. xG trendinde belirgin bir sapma (ör. son 3 maçta xG ortalaması 2.1 → 0.8’e düşüş) varsa bu konsantrasyon/performans düşüşü sinyalidir.  
+3. Takımların son 6 H2H maçında gol eğilimi piyasa beklentisiyle çelişiyorsa bunu “evidence” kısmına yaz.  
+4. Sadece istatistiksel ve rasyonel anormallikleri listele — spekülatif yorum yapma.  
+5. Tüm metinler Türkçe olacak; sayısal değerler hariç İngilizce kelime kullanılmayacak.  
+6. Yüzde değerler tek ondalıkla yazılacak (ör. "%8.3").
 
-        Yorumların tamamı Türkçe olacak, sayısal değerler dışında İngilizce kelime kullanma.
-        """;
+ÇIKTI JSON FORMAT:
+{
+  "impossible_odds": [
+    {
+      "market": "Üst 2.5 Gol @ 1.90 (%52)",
+      "true_prob": "%23.7",
+      "edge_ratio": 2.19,
+      "evidence": "Son 5 maçta toplam gol ort. 1.4; iki takımın 4 H2H maçı alt bitti; piyasa %52 fiyatlamış ama veri %24 gösteriyor.",
+      "signals": ["low_goal_trend", "market_overpriced", "h2h_under_pattern"],
+      "confidence": "yüksek"
+    },
+    {
+      "market": "Team B Kazanır @ 4.80 (%20)",
+      "true_prob": "%9.5",
+      "edge_ratio": 2.1,
+      "evidence": "Deplasman son 8 maçta 1 galibiyet; son 4 dış saha maçında xG ort. 0.7; buna rağmen piyasa %20 olasılık veriyor.",
+      "signals": ["away_form_decline", "low_xg_away", "market_bias"],
+      "confidence": "orta"
+    }
+  ],
+  "comments": "Son 10 maç verileri düşük skoru işaret ederken piyasa yüksek tempolu maç bekliyor — oranlarda aşırı iyimserlik var."
+}
+""";
+
 
         // Groq için statik HttpClient (Python'daki modül seviyesi HEADERS gibi)
         private static readonly HttpClient _httpClient;
